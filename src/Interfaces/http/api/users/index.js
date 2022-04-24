@@ -7,6 +7,8 @@ const users = (container) => {
 
 	router.get("/", userHandler.handleGetUsers);
 
+	router.get("/testing-bot", userHandler.handleTestingBot);
+
 	app.use("/users", router);
 	return app;
 };

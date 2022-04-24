@@ -3,15 +3,13 @@ const { Server } = require("socket.io");
 const createSocket = async (httpServer) => {
 	const io = new Server(httpServer, {
 		cors: {
-			origin: [process.env.APP_URL, "http://localhost:8000"],
+			origin: process.env.SOCKET_ALLOW_ORIGIN
+				? process.env.SOCKET_ALLOW_ORIGIN.split(" ")
+				: false,
 		},
 	});
 
 	io.use(async (socket, next) => {
-		const usersSocket = await io.fetchSockets();
-		const users = usersSocket.map((socket) => socket.handshake.query.username);
-		console.log("user saat ini adalah ", users);
-
 		if (socket.handshake.query.username !== undefined) {
 			const clients = await io.fetchSockets();
 			const usernameExists = clients.filter(
@@ -20,15 +18,29 @@ const createSocket = async (httpServer) => {
 			);
 
 			if (usernameExists.length > 0) {
-				return next(new Error("Username already exists"));
+				next(new Error("Username already exists"));
+				return socket.disconnect();
 			}
 		}
 		next();
 	});
 
 	io.on("connection", async (socket) => {
+		const usersSocket = await io.fetchSockets();
+		const users = usersSocket.map((socket) => socket.handshake.query.username);
+
 		socket.on("disconnect", (reason) => {
-			console.log("user disconnect due " + reason);
+			if (socket.username) {
+				io.emit("userDisconnected", {
+					disconnectedUser: socket.handshake.query.username,
+					currentUser: users,
+				});
+			}
+		});
+
+		io.emit("userConnected", {
+			connectedUser: socket.handshake.query.username,
+			currentUser: users,
 		});
 	});
 };
